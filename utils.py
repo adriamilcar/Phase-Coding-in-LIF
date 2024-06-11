@@ -43,53 +43,7 @@ def compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc):
     return phi_i
 
 
-def compute_var_phi(R_m, V_th, eta, tau_m, omega, I_s, I_osc, f, N):
-    """Compute the variance in phase of firing."""
-    phi_Is = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
-    exp_term = np.exp(-2 / (f * tau_m))
-    alpha = I_s/I_s_ref
-    numerator = omega**2 * alpha**2 * eta**2 * V_th**2 * (1 - exp_term) * tau_m**2
-    denominator = 2 * (-V_th + R_m * I_s - R_m * I_osc * np.cos(phi_Is))**2
-    var_phi = numerator / denominator
-    return var_phi
-
-
-def compute_var_phi_fromPRC_1(R_m, V_th, eta, tau_m, omega, I_s, I_osc, f, N):
-    """Compute the variance in phase of firing."""
-    T = 1 / f
-    A = 1 / np.sqrt(1 + (tau_m * omega) ** 2)
-    varphi = -np.arctan(omega * tau_m)
-    phi_Is = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
-    alpha = I_s/I_s_ref
-    numerator = alpha**2 * eta**2 * V_th**2 * (1 - np.exp(-2*T / tau_m))
-    denominator = 2 * R_m**2 * I_osc**2 * A**2 * (1 - np.exp(-T / tau_m))**2 * np.sin(phi_Is + varphi)**2
-    var_phi_Is = numerator / denominator
-    return var_phi_Is
-
-
-def compute_var_phi_fromPRC_2(R_m, V_th, eta, tau_m, omega, I_s, I_osc, f, N):
-    """Compute the variance in phase of firing."""
-    T = 1 / f
-    A = 1 / np.sqrt(1 + (tau_m * omega) ** 2)
-    eff_osc_amp = R_m * I_osc * A * (1 - np.exp(-T / tau_m))  # effective oscillation amplitude
-    eff_stim_current = R_m * I_s * (1 - np.exp(-T / tau_m))   # effective stimulus current
-    alpha = I_s/I_s_ref
-    numerator = alpha**2 * eta**2 * V_th**2 * (1 - np.exp(-2 * T / tau_m))
-    denominator = 2 * (eff_osc_amp**2 - (V_th - eff_stim_current)**2)
-    var_phi = numerator / denominator
-    return var_phi
-
-
-def get_distr(R_m, V_th, eta, tau_m, I_osc, f, M, range_frac, N):
-    omega = 2 * np.pi * f
-    I_min, I_max = get_automatic_range(R_m, V_th, tau_m, omega, I_osc, range_frac)
-    Is_range = np.linspace(I_min, I_max, M)
-    means = [compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc) for I_s in Is_range]
-    variances = [compute_var_phi(R_m, V_th, eta, tau_m, omega, I_s, I_osc, f, N) for I_s in Is_range]
-    return np.array(means), np.array(variances), Is_range
-
-
-def get_automatic_range(R_m, V_th, tau_m, omega, I_osc, range_frac=.9):
+def get_automatic_range(R_m, V_th, tau_m, omega, I_osc, range_frac=0.75):
     A = 1 / np.sqrt(1 + (tau_m * omega)**2)
     T = (2 * np.pi) / omega
     expon = np.exp(-T / tau_m)
@@ -105,9 +59,92 @@ def get_automatic_range(R_m, V_th, tau_m, omega, I_osc, range_frac=.9):
     return I_min, I_max
 
 
+def get_avg_Is(V_th, R_m, tau_m, f):
+    T = 1 / f
+    Is_bar = V_th / ( R_m * (1 - np.exp(-T/tau_m)) )
+    return Is_bar
+
+
+def get_total_Is_range(I_osc, f, tau_m):
+    omega = 2 * np.pi * f
+    A = 1 / np.sqrt(1 + (tau_m * omega)**2)
+    return 2 * A * I_osc
+
+
+def compute_var_phi(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, N=1):
+    """Compute the variance in phase of firing."""
+    phi_Is = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
+    exp_term = np.exp(-2 / (f * tau_m))
+    alpha = I_s/I_s_ref
+    numerator = omega**2 * alpha**2 * eta**2 * V_th**2 * (1 - exp_term) * tau_m**2
+    denominator = 2 * (-V_th + R_m * I_s - R_m * I_osc * np.cos(phi_Is))**2
+    var_phi = numerator / denominator
+    return var_phi
+
+
+def compute_var_phi_fromPRC_1(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, N=1):
+    """Compute the variance in phase of firing."""
+    T = 1 / f
+    A = 1 / np.sqrt(1 + (tau_m * omega) ** 2)
+    varphi = -np.arctan(omega * tau_m)
+    phi_Is = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
+    alpha = I_s/I_s_ref
+    numerator = alpha**2 * eta**2 * V_th**2 * (1 - np.exp(-2*T / tau_m))
+    denominator = 2 * R_m**2 * I_osc**2 * A**2 * (1 - np.exp(-T / tau_m))**2 * np.sin(phi_Is + varphi)**2
+    var_phi_Is = numerator / denominator
+    return var_phi_Is
+
+
+def compute_var_phi_fromPRC_2(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, N=1):
+    """Compute the variance in phase of firing."""
+    T = 1 / f
+    A = 1 / np.sqrt(1 + (tau_m * omega) ** 2)
+    eff_osc_amp = R_m * I_osc * A * (1 - np.exp(-T / tau_m))  # effective oscillation amplitude
+    eff_stim_current = R_m * I_s * (1 - np.exp(-T / tau_m))   # effective stimulus current
+    alpha = I_s/I_s_ref
+    numerator = alpha**2 * eta**2 * V_th**2 * (1 - np.exp(-2 * T / tau_m))
+    denominator = 2 * (eff_osc_amp**2 - (V_th - eff_stim_current)**2)
+    var_phi = numerator / denominator
+    return var_phi
+
+
+def voltage_dynamics(R_m, V_th, V, tau_m, I_s, I_osc, f):
+    omega = 2 * np.pi * f
+    phi = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
+    dV_dt = (-V + R_m * I_s - R_m * I_osc * np.cos(phi)) / tau_m
+    return dV_dt
+
+
+def compute_mu_V_through_time(R_m, V_th, tau_m, I_s, I_osc, f, t):
+    T = 1 / f
+    omega = 2 * np.pi * f
+    A = 1 / np.sqrt(1 + (tau_m * omega) ** 2)
+    varphi = -np.arctan(omega * tau_m)
+    phi_0 = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
+    tonic_input_contrib = R_m * I_s * (1 - np.exp(-t / tau_m))
+    osc_input_contrib = -R_m * I_osc * A * ( np.cos(omega * t + phi_0 + varphi) - np.exp(-t / tau_m) * np.cos(phi_0 + varphi) )
+    V_t = tonic_input_contrib + osc_input_contrib
+    return V_t
+
+
+def compute_sigma_V_through_time(V_th, eta, tau_m, I_s, I_s_ref, t):
+    alpha = I_s/I_s_ref
+    sigma_v = alpha**2 * eta**2 * V_th**2 * (1 - np.exp(-2 * t / tau_m)) / 2
+    return sigma_v
+
+
+def get_distr(R_m, V_th, eta, tau_m, I_osc, f, M, range_frac, N):
+    omega = 2 * np.pi * f
+    I_min, I_max = get_automatic_range(R_m, V_th, tau_m, omega, I_osc, range_frac)
+    Is_range = np.linspace(I_min, I_max, M)
+    means = [compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc) for I_s in Is_range]
+    variances = [compute_var_phi(R_m, V_th, eta, tau_m, omega, I_s, I_osc, f, N) for I_s in Is_range]
+    return np.array(means), np.array(variances), Is_range
+
+
 def approx_mi(means, variances):
-	K = np.log(2 * np.pi * np.exp(1)) / 2
-	mi = K * (np.log(np.mean(variances) + np.var(means)) - np.mean(np.log(variances)))
+	K = np.log2(2 * np.pi * np.exp(1)) / 2
+	mi = K * (np.log2(np.mean(variances) + np.var(means)) - np.mean(np.log2(variances)))
 	return mi
 
 
@@ -117,9 +154,9 @@ def numerical_mi(means, variances, n_samples=int(1e4)):
         samples.extend(norm.rvs(loc=mean, scale=np.sqrt(var), size=n_samples))
     histogram, _ = np.histogram(samples, bins='auto', density=True)
     histogram = histogram + np.finfo(float).eps
-    H_Y = -np.sum(histogram * np.log(histogram) * np.diff(np.linspace(np.min(samples), np.max(samples), len(histogram) + 1)))
+    H_Y = -np.sum(histogram * np.log2(histogram) * np.diff(np.linspace(np.min(samples), np.max(samples), len(histogram) + 1)))
 
-    H_Y_given_X = np.mean([0.5 * np.log(2 * np.pi * np.e * var) for var in variances])
+    H_Y_given_X = np.mean([0.5 * np.log2(2 * np.pi * np.e * var) for var in variances])
 
     return H_Y - H_Y_given_X
 
@@ -140,7 +177,7 @@ def get_R(mis, fs, tau_s, corr=True, norm=True):
     return info_rate
 
 
-def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, n_neurons, store_trajectories=False):
+def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, n_neurons, store_trajectories=False, V_nans=False, free_V=False):
     alpha = I_s / I_s_ref
     sigma_W = eta * alpha * V_th / np.sqrt(tau_m)
     phi_0 = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
@@ -155,7 +192,9 @@ def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt
     has_spiked = np.zeros(n_neurons, dtype=bool)
     
     if store_trajectories:
-        voltage_trajectories = np.zeros((len(t), n_neurons)) * np.nan
+        voltage_trajectories = np.zeros((len(t), n_neurons))
+        if V_nans:
+            voltage_trajectories *= np.nan
     
     for i in range(len(t)):
         xi = np.random.normal(0, 1/np.sqrt(dt), n_neurons)
@@ -165,18 +204,20 @@ def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt
         
         if store_trajectories:
             voltage_trajectories[i, :] = V
-            voltage_trajectories[i, has_spiked] = np.nan
+            if V_nans:
+                voltage_trajectories[i, has_spiked] = np.nan
         
-        spiked = V >= V_th
-        if np.any(spiked):
-            V[spiked] = 0 
-            if (omega * t[i] - np.pi + phi_0) > np.pi:
-                mask = spiked & (first_spike_phase == None)
-                first_spike_phase[mask] = (omega * t[i] + phi_0) % (2 * np.pi)
-                first_spike_times[mask] = t[i]
-                has_spiked[spiked] = 1
-                if np.all(first_spike_phase != None):
-                    break
+        if not free_V:
+            spiked = V >= V_th
+            if np.any(spiked):
+                V[spiked] = 0 
+                if (omega * t[i] - np.pi + phi_0) > np.pi:
+                    mask = spiked & (first_spike_phase == None)
+                    first_spike_phase[mask] = (omega * t[i] + phi_0) % (2 * np.pi)
+                    first_spike_times[mask] = t[i]
+                    has_spiked[spiked] = 1
+                    if np.all(first_spike_phase != None):
+                        break
     
     if store_trajectories:
         return first_spike_phase, voltage_trajectories, first_spike_times, phi_0
