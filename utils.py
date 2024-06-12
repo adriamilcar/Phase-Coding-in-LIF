@@ -137,8 +137,9 @@ def get_distr(R_m, V_th, eta, tau_m, I_osc, f, M, range_frac, N):
     omega = 2 * np.pi * f
     I_min, I_max = get_automatic_range(R_m, V_th, tau_m, omega, I_osc, range_frac)
     Is_range = np.linspace(I_min, I_max, M)
+    I_s_ref, _ = get_automatic_range(R_m, V_th, tau_m, 2*np.pi*1, I_osc, range_frac)
     means = [compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc) for I_s in Is_range]
-    variances = [compute_var_phi(R_m, V_th, eta, tau_m, omega, I_s, I_osc, f, N) for I_s in Is_range]
+    variances = [compute_var_phi(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, N) for I_s in Is_range]
     return np.array(means), np.array(variances), Is_range
 
 
@@ -246,7 +247,7 @@ def get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, r
             all_first_spike_times.append(first_spike_times)
             all_phi_0.append(phi_0)
         else:
-            first_spike_phases = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_osc, f, M, dt, t, num_trials)
+            first_spike_phases = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials)
         
         first_spike_phases = np.where(first_spike_phases == None, np.nan, first_spike_phases)
         all_first_spike_phases.append(first_spike_phases)
