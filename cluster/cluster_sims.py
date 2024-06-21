@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import norm
-import seaborn as sb
 import pickle
+import itertools
 
 
 def grid_freqNoise_exp(idx):
@@ -16,13 +16,13 @@ def grid_freqNoise_exp(idx):
 	    """Compute the mean and variance of a truncated normal distribution."""
 	    sigma = np.sqrt(var)
 	    alpha = (a - mu) / sigma
-	    
+
 	    Z = 1 - norm.cdf(alpha)
 	    phi_alpha = norm.pdf(alpha)
-	    
+
 	    mu_t = mu + sigma * (phi_alpha / Z)
 	    var_t = var * (1 + (alpha * phi_alpha / Z) - (phi_alpha / Z) ** 2)
-	    
+
 	    return mu_t, var_t
 
 
@@ -35,7 +35,7 @@ def grid_freqNoise_exp(idx):
 	    """Compute the expected phase of firing."""
 	    A = 1 / np.sqrt(1 + (tau_m * omega)**2)
 	    T = (2 * np.pi) / omega
-	    varphi = -np.arctan(omega * tau_m) 
+	    varphi = -np.arctan(omega * tau_m)
 	    numerator = R_m * I_s * (1 - np.exp(-T / tau_m)) - V_th
 	    denominator = R_m * I_osc * A * (1 - np.exp(-T / tau_m))
 	    phi_i = np.arccos(numerator / denominator) - varphi
@@ -47,14 +47,14 @@ def grid_freqNoise_exp(idx):
 	    T = (2 * np.pi) / omega
 	    expon = np.exp(-T / tau_m)
 	    frac_denom = (1 - expon) * R_m * I_osc * A
-	    
+
 	    I_min = (V_th / frac_denom - 1) * I_osc * A
 	    I_max = (V_th / frac_denom + 1) * I_osc * A
-	    
+
 	    corr_frac = (1 - range_frac) * (I_max - I_min) / 2
 	    I_min += corr_frac
 	    I_max -= corr_frac
-	    
+
 	    return I_min, I_max
 
 
@@ -163,17 +163,17 @@ def grid_freqNoise_exp(idx):
 
 	def get_R(mis, fs, tau_s, corr=True, norm=True):
 	    info_rate = mis * fs[np.newaxis, :]
-	    
+
 	    if corr:
 	        corr_fact_sampling = (1 - np.exp(-(1/(fs*tau_s))))
 	        info_rate = info_rate * corr_fact_sampling[np.newaxis, :]
-	    
+
 	    if norm:
-	        info_rate_norm = np.zeros_like(info_rate)  
+	        info_rate_norm = np.zeros_like(info_rate)
 	        for index, row in enumerate(info_rate):
 	            info_rate_norm[index, :] = row/np.max(row)
 	        info_rate = info_rate_norm
-	        
+
 	    return info_rate
 
 
@@ -181,36 +181,36 @@ def grid_freqNoise_exp(idx):
 	    alpha = I_s / I_s_ref
 	    sigma_W = eta * alpha * V_th / np.sqrt(tau_m)
 	    phi_0 = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
-	    
+
 	    T = 1 / f
 	    A = 1 / np.sqrt(1 + (tau_m * omega)**2)
-	    
+
 	    V = np.zeros(n_neurons)
 	    first_spike_phase = np.empty(n_neurons, dtype='object')
 	    first_spike_phase[:] = None
 	    first_spike_times = np.full(n_neurons, np.nan)
 	    has_spiked = np.zeros(n_neurons, dtype=bool)
-	    
+
 	    if store_trajectories:
 	        voltage_trajectories = np.zeros((len(t), n_neurons))
 	        if V_nans:
 	            voltage_trajectories *= np.nan
-	    
+
 	    for i in range(len(t)):
 	        xi = np.random.normal(0, 1/np.sqrt(dt), n_neurons)
 	        I_theta = I_osc * np.cos(omega * t[i] + phi_0)
 	        dV_dt = (-V + R_m * (I_s - I_theta) + tau_m * sigma_W * xi) / tau_m
 	        V += dV_dt * dt
-	        
+
 	        if store_trajectories:
 	            voltage_trajectories[i, :] = V
 	            if V_nans:
 	                voltage_trajectories[i, has_spiked] = np.nan
-	        
+
 	        if not free_V:
 	            spiked = V >= V_th
 	            if np.any(spiked):
-	                V[spiked] = 0 
+	                V[spiked] = 0
 	                if (omega * t[i] - np.pi + phi_0) > np.pi:
 	                    mask = spiked & (first_spike_phase == None)
 	                    first_spike_phase[mask] = (omega * t[i] + phi_0) % (2 * np.pi)
@@ -218,7 +218,7 @@ def grid_freqNoise_exp(idx):
 	                    has_spiked[spiked] = 1
 	                    if np.all(first_spike_phase != None):
 	                        break
-	    
+
 	    if store_trajectories:
 	        return first_spike_phase, voltage_trajectories, first_spike_times, phi_0
 	    else:
@@ -231,14 +231,14 @@ def grid_freqNoise_exp(idx):
 	    Is_range = np.linspace(I_min, I_max, M)
 
 	    I_s_ref, _ = get_automatic_range(R_m, V_th, tau_m, 2*np.pi*1, I_osc, range_frac)
-	    
+
 	    means = []
 	    variances = []
 	    all_first_spike_phases = []
 	    all_voltages = []
 	    all_first_spike_times = []
 	    all_phi_0 = []
-	    
+
 	    for I_s in Is_range:
 	        if store_trajectories:
 	            first_spike_phases, voltage_trajectories, first_spike_times, phi_0 = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials, store_trajectories)
@@ -247,12 +247,12 @@ def grid_freqNoise_exp(idx):
 	            all_phi_0.append(phi_0)
 	        else:
 	            first_spike_phases = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials)
-	        
+
 	        first_spike_phases = np.where(first_spike_phases == None, np.nan, first_spike_phases)
 	        all_first_spike_phases.append(first_spike_phases)
 	        means.append(np.nanmean(first_spike_phases))
 	        variances.append(np.nanvar(first_spike_phases))
-	    
+
 	    if store_trajectories:
 	        return np.array(means), np.array(variances), all_first_spike_phases, Is_range, all_voltages, all_first_spike_times, all_phi_0
 	    else:
@@ -305,12 +305,12 @@ def grid_freqNoise_exp(idx):
 
 	## SIMULATION
 	t_end = 2 / f
-    t = np.arange(0, t_end, dt)
+	t = np.arange(0, t_end, dt)
 
-    means_emp, variances_emp, all_phis, Is_range = get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, range_frac)
+	means_emp, variances_emp, all_phis, Is_range = get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, range_frac)
 
-    means_theo, variances_theo, Is_range = get_distr(R_m, V_th, eta, tau_m, I_osc, f, M, range_frac, N=1)
-    means_theo, variances_theo = truncated_Gaussian_moments(means_theo, variances_theo, a=0)
+	means_theo, variances_theo, Is_range = get_distr(R_m, V_th, eta, tau_m, I_osc, f, M, range_frac, N=1)
+	means_theo, variances_theo = truncated_Gaussian_moments(means_theo, variances_theo, a=0)
 
 	MI = numerical_mi(means_emp, variances_emp, n_samples=int(2e4))
 
