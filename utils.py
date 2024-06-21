@@ -144,9 +144,9 @@ def get_distr(R_m, V_th, eta, tau_m, I_osc, f, M, range_frac, N):
 
 
 def approx_mi(means, variances):
-	K = np.log2(2 * np.pi * np.exp(1)) / 2
-	mi = K * (np.log2(np.mean(variances) + np.var(means)) - np.mean(np.log2(variances)))
-	return mi
+    K = np.log2(2 * np.pi * np.exp(1)) / 2
+    mi = K * (np.log2(np.mean(variances) + np.var(means)) - np.mean(np.log2(variances)))
+    return mi
 
 
 def numerical_mi(means, variances, n_samples=int(1e4)):
