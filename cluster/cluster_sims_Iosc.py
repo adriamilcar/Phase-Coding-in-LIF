@@ -297,8 +297,9 @@ def grid_freqIosc_exp(idx):
 
 	I_osc, f = experiments[idx]
 
-	sigma_w_avg = 0.0135
-	eta = sigma_w_to_eta(sigma_w_avg, V_th, tau_m, f)
+	#sigma_w_avg = 0.0135
+	#eta = sigma_w_to_eta(sigma_w_avg, V_th, tau_m, f)
+	eta = 0.1
 
 	# Simulation parameters
 	dt = 1e-4            # Time step for numerical integration

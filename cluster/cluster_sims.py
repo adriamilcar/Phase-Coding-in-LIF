@@ -286,8 +286,8 @@ def grid_freqNoise_exp(idx):
 	range_frac = 0.6                                    # fraction of range to use
 
 	# Get noise and f from idx
-	noise_lims = [0.001, 0.3]
-	f_lims = [1, 50]
+	noise_lims = [1e-10, 0.3]
+	f_lims = [1, 100]
 	res = 200
 
 	noise_fracs = np.linspace(noise_lims[0], noise_lims[1], res)

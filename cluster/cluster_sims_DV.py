@@ -300,8 +300,9 @@ def grid_freqDV_exp(idx):
 	# Default params
 	M = 10
 	range_frac = 0.6
-	sigma_w_avg = 0.0135
-	eta = sigma_w_to_eta(sigma_w_avg, V_th, tau_m, f)
+	#sigma_w_avg = 0.0135
+	#eta = sigma_w_to_eta(sigma_w_avg, V_th, tau_m, f)
+	eta = 0.1
 
 	# Simulation parameters
 	dt = 1e-4            # Time step for numerical integration
