@@ -144,22 +144,23 @@ def get_distr(R_m, V_th, eta, tau_m, I_osc, f, M, range_frac, N):
 
 
 def approx_mi(means, variances):
-    K = np.log2(2 * np.pi * np.exp(1)) / 2
-    mi = K * (np.log2(np.mean(variances) + np.var(means)) - np.mean(np.log2(variances)))
-    return mi
+    #H_R = (1/2) * np.log2((2 * np.pi * np.e) * (np.mean(variances) + np.var(means)))
+    #H_R_given_S= (1/2) * np.mean([np.log2(2 * np.pi * np.e * var) for var in variances])
+    #MI = H_R - H_R_given_S
+    MI = (1/2) * (np.log2(np.mean(variances) + np.var(means)) - np.mean(np.log2(variances)))
+    return MI
 
 
 def numerical_mi(means, variances, n_samples=int(1e4)):
     samples = []
     for mean, var in zip(means, variances):
         samples.extend(norm.rvs(loc=mean, scale=np.sqrt(var), size=n_samples))
-    histogram, _ = np.histogram(samples, bins='auto', density=True)
+    histogram, _ = np.histogram(samples, bins=100, density=True)  #bins='auto'
     histogram = histogram + np.finfo(float).eps
-    H_Y = -np.sum(histogram * np.log2(histogram) * np.diff(np.linspace(np.min(samples), np.max(samples), len(histogram) + 1)))
-
-    H_Y_given_X = np.mean([0.5 * np.log2(2 * np.pi * np.e * var) for var in variances])
-
-    return H_Y - H_Y_given_X
+    H_R = -np.sum(histogram * np.log2(histogram) * np.diff(np.linspace(np.min(samples), np.max(samples), len(histogram) + 1)))
+    H_R_given_S= (1/2) * np.mean([np.log2(2 * np.pi * np.e * var) for var in variances])
+    MI = H_R - H_R_given_S
+    return MI
 
 
 def get_R(mis, fs, tau_s, corr=True, norm=True):
@@ -182,6 +183,7 @@ def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt
     alpha = I_s / I_s_ref
     sigma_W = eta * alpha * V_th / np.sqrt(tau_m)
     phi_0 = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
+    #phi_0 = 0
     
     T = 1 / f
     A = 1 / np.sqrt(1 + (tau_m * omega)**2)
@@ -219,6 +221,7 @@ def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt
                     has_spiked[spiked] = 1
                     if np.all(first_spike_phase != None):
                         break
+                        #pass
     
     if store_trajectories:
         return first_spike_phase, voltage_trajectories, first_spike_times, phi_0
@@ -226,7 +229,7 @@ def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt
         return first_spike_phase
 
 
-def get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, range_frac, store_trajectories=False):
+def get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, range_frac, store_trajectories=False, V_nans=False, free_V=False):
     omega = 2 * np.pi * f
     I_min, I_max = get_automatic_range(R_m, V_th, tau_m, omega, I_osc, range_frac)
     Is_range = np.linspace(I_min, I_max, M)
@@ -242,7 +245,7 @@ def get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, r
     
     for I_s in Is_range:
         if store_trajectories:
-            first_spike_phases, voltage_trajectories, first_spike_times, phi_0 = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials, store_trajectories)
+            first_spike_phases, voltage_trajectories, first_spike_times, phi_0 = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials, store_trajectories, V_nans, free_V)
             all_voltages.append(voltage_trajectories)
             all_first_spike_times.append(first_spike_times)
             all_phi_0.append(phi_0)
