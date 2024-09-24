@@ -27,7 +27,12 @@ def truncated_Gaussian_moments(mu, var, a=0):
     return mu_t, var_t
 
 
-def sigma_w_to_eta(sigma_w, V_th, tau_m, f):
+def sigma_w_to_eta(sigma_w, V_th, tau_m, alpha):
+    """Convert sigma_w to eta."""
+    return (sigma_w * np.sqrt(tau_m)) / V_th
+
+
+def eta_to_sigma_w(sigma_w, V_th, tau_m, alpha):
     """Convert sigma_w to eta."""
     return (sigma_w * np.sqrt(tau_m)) / V_th
 
@@ -178,8 +183,8 @@ def get_R(mis, fs, tau_s, corr=True, norm=True):
         
     return info_rate
 
-
-def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, n_neurons, store_trajectories=False, V_nans=False, free_V=False):
+'''
+def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, n_neurons, corr_noise, store_trajectories=False, V_nans=False, free_V=False):
     alpha = I_s / I_s_ref
     sigma_W = eta * alpha * V_th / np.sqrt(tau_m)
     phi_0 = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
@@ -199,8 +204,10 @@ def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt
         if V_nans:
             voltage_trajectories *= np.nan
     
+    xi = 0
     for i in range(len(t)):
-        xi = np.random.normal(0, 1/np.sqrt(dt), n_neurons)
+        #xi = np.random.normal(0, 1/np.sqrt(dt), n_neurons)
+        xi = corr_noise * xi + np.random.normal(0, 1/np.sqrt(dt), n_neurons)
         I_theta = I_osc * np.cos(omega * t[i] + phi_0)
         dV_dt = (-V + R_m * (I_s - I_theta) + tau_m * sigma_W * xi) / tau_m
         V += dV_dt * dt
@@ -227,9 +234,100 @@ def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt
         return first_spike_phase, voltage_trajectories, first_spike_times, phi_0
     else:
         return first_spike_phase
+'''
+
+def generate_noise(N, beta=1, std=1):
+    """
+    Generate a colored noise sequence using the Fourier transform method.
+
+    Parameters:
+    - N: Number of samples.
+    - beta: Exponent for the power-law (beta=0 for white noise, beta=1 for pink noise, and beta=2 for brown noise).
+    - std: Desired standard deviation of the output sequence.
+
+    Returns:
+    - colored_noise: Generated pink noise sequence of length N.
+    """
+    # Generate white noise
+    white_noise = np.random.randn(N)
+    
+    # Fourier transform
+    fft_white = np.fft.rfft(white_noise)
+    
+    # Frequencies
+    frequencies = np.fft.rfftfreq(N)
+    # Avoid division by zero at f=0
+    frequencies[0] = frequencies[1]
+    
+    # Apply 1/f^beta filter
+    amplitudes = 1 / frequencies**(beta / 2)
+    fft_colored = fft_white * amplitudes
+    
+    # Inverse Fourier transform
+    colored_noise = np.fft.irfft(fft_colored, n=N)
+    
+    # Normalize to desired standard deviation
+    colored_noise = colored_noise / np.std(colored_noise) * std
+    
+    return colored_noise
 
 
-def get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, range_frac, store_trajectories=False, V_nans=False, free_V=False):
+def simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, n_neurons, beta=0, store_trajectories=False, V_nans=False, free_V=False):
+    alpha = I_s / I_s_ref
+    sigma_W = eta * alpha * V_th / np.sqrt(tau_m)
+    phi_0 = compute_mean_phi(R_m, V_th, tau_m, omega, I_s, I_osc)
+    
+    T = 1 / f
+    A = 1 / np.sqrt(1 + (tau_m * omega)**2)
+    
+    V = np.zeros(n_neurons)
+    first_spike_phase = np.empty(n_neurons, dtype='object')
+    first_spike_phase[:] = None
+    first_spike_times = np.full(n_neurons, np.nan)
+    has_spiked = np.zeros(n_neurons, dtype=bool)
+    
+    if store_trajectories:
+        voltage_trajectories = np.zeros((len(t), n_neurons))
+        if V_nans:
+            voltage_trajectories *= np.nan
+    
+    # Generate white noise (beta==0), pink noise (beta==1), or brown noise (beta==2) sequences for each neuron
+    num_time_steps = len(t)
+    std = 1 / np.sqrt(dt)
+    xi_pink = np.zeros((num_time_steps, n_neurons))
+    for neuron in range(n_neurons):
+        xi_pink[:, neuron] = generate_noise(num_time_steps, beta=beta, std=std)
+    
+    for i in range(len(t)):
+        xi = xi_pink[i, :]  # Use pink noise instead of white noise
+        I_theta = I_osc * np.cos(omega * t[i] + phi_0)
+        dV_dt = (-V + R_m * (I_s - I_theta) + tau_m * sigma_W * xi) / tau_m
+        V += dV_dt * dt
+        
+        if store_trajectories:
+            voltage_trajectories[i, :] = V
+            if V_nans:
+                voltage_trajectories[i, has_spiked] = np.nan
+        
+        if not free_V:
+            spiked = V >= V_th
+            if np.any(spiked):
+                V[spiked] = 0 
+                if (omega * t[i] - np.pi + phi_0) > np.pi:
+                    mask = spiked & (first_spike_phase == None)
+                    first_spike_phase[mask] = (omega * t[i] + phi_0) % (2 * np.pi)
+                    first_spike_times[mask] = t[i]
+                    has_spiked[spiked] = 1
+                    if np.all(first_spike_phase != None):
+                        break
+    
+    if store_trajectories:
+        return first_spike_phase, voltage_trajectories, first_spike_times, phi_0
+    else:
+        return first_spike_phase
+
+
+def get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, range_frac, beta=0, store_trajectories=False, V_nans=False, free_V=False):
     omega = 2 * np.pi * f
     I_min, I_max = get_automatic_range(R_m, V_th, tau_m, omega, I_osc, range_frac)
     Is_range = np.linspace(I_min, I_max, M)
@@ -245,12 +343,12 @@ def get_distr_empirical(R_m, V_th, eta, tau_m, I_osc, f, M, dt, t, num_trials, r
     
     for I_s in Is_range:
         if store_trajectories:
-            first_spike_phases, voltage_trajectories, first_spike_times, phi_0 = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials, store_trajectories, V_nans, free_V)
+            first_spike_phases, voltage_trajectories, first_spike_times, phi_0 = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials, beta, store_trajectories, V_nans, free_V)
             all_voltages.append(voltage_trajectories)
             all_first_spike_times.append(first_spike_times)
             all_phi_0.append(phi_0)
         else:
-            first_spike_phases = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials)
+            first_spike_phases = simulate_neurons(R_m, V_th, eta, tau_m, omega, I_s, I_s_ref, I_osc, f, M, dt, t, num_trials, beta)
         
         first_spike_phases = np.where(first_spike_phases == None, np.nan, first_spike_phases)
         all_first_spike_phases.append(first_spike_phases)
