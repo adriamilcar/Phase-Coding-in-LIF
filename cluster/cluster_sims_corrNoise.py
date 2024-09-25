@@ -143,9 +143,8 @@ def grid_freqNoise_exp(idx):
 
 
 	def approx_mi(means, variances):
-		K = np.log2(2 * np.pi * np.exp(1)) / 2
-		mi = K * (np.log2(np.mean(variances) + np.var(means)) - np.mean(np.log2(variances)))
-		return mi
+		MI = (1/2) * (np.log2(np.mean(variances) + np.var(means)) - np.mean(np.log2(variances)))
+    	return MI
 
 
 	def numerical_mi(means, variances, n_samples=int(1e4)):
