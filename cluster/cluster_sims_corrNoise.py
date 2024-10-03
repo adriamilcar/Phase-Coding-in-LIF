@@ -234,12 +234,12 @@ def grid_freqNoise_exp(idx):
 	    # Generate colored noise sequences for each neuron
 	    num_time_steps = len(t)
 	    std = 1 / np.sqrt(dt)
-	    xi_pink = np.zeros((num_time_steps, n_neurons))
+	    xi_colored = np.zeros((num_time_steps, n_neurons))
 	    for neuron in range(n_neurons):
-	        xi_pink[:, neuron] = generate_noise(num_time_steps, beta=beta, std=std)
+	        xi_colored[:, neuron] = generate_noise(num_time_steps, beta=beta, std=std)
 	    
 	    for i in range(len(t)):
-	        xi = xi_pink[i, :]  # Use pink noise instead of white noise
+	        xi = xi_colored[i, :]  # Use colored noise with decay exponent beta (1/f^beta)
 	        I_theta = I_osc * np.cos(omega * t[i] + phi_0)
 	        dV_dt = (-V + R_m * (I_s - I_theta) + tau_m * sigma_W * xi) / tau_m
 	        V += dV_dt * dt
